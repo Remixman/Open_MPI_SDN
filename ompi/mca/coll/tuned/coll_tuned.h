@@ -37,6 +37,9 @@
 /* also need the dynamic rule structures */
 #include "coll_tuned_dynamic_rules.h"
 
+/* sdn stuff definition */
+#include "coll_tuned_sdn_util.h"
+
 /* some fixed value index vars to simplify certain operations */
 typedef enum COLLTYPE {
     ALLGATHER = 0,  /*  0 */
@@ -78,6 +81,50 @@ typedef enum COLLTYPE {
 /* end defined arg lists to simply auto inclusion of user overriding decision functions */
 
 BEGIN_C_DECLS
+
+/* use in sdn algorithm, define in coll_tuned_sdn_utils.c */
+extern int _proc_num;
+extern int _rank;
+extern int _recv_sock;
+extern int *_send_socks;
+extern int *_recv_ports;
+extern int *_send_ports;
+extern char ** _proc_ips;
+extern int *_plan_count;
+extern struct send_recv_plan **_sr_plans;
+extern u_char **_ether_hosts;
+extern char **_ip_hosts;
+extern char _mac_addr[20];
+extern char _ip[INET_ADDRSTRLEN];
+
+struct send_recv_plan {
+    int32_t level;
+    int32_t src;
+    int32_t dst; 
+};
+
+struct tcpheader {
+    unsigned short int tcph_srcport;
+    unsigned short int tcph_destport;
+    unsigned int       tcph_seqnum;
+    unsigned int       tcph_acknum;
+    unsigned char      tcph_reserved:4, tcph_offset:4;
+    // unsigned char tcph_flags;
+    unsigned int
+        tcp_res1:4,       /*little-endian*/
+        tcph_hlen:4,      /*length of tcp header in 32-bit words*/
+        tcph_fin:1,       /*Finish flag "fin"*/
+        tcph_syn:1,       /*Synchronize sequence numbers to start a connection*/
+        tcph_rst:1,       /*Reset flag */
+        tcph_psh:1,       /*Push, sends data to the application*/
+        tcph_ack:1,       /*acknowledge*/
+        tcph_urg:1,       /*urgent pointer*/
+        tcph_res2:2;
+    unsigned short int tcph_win;
+    unsigned short int tcph_chksum;
+    unsigned short int tcph_urgptr;
+};
+
 
 /* these are the same across all modules and are loaded at component query time */
 extern int   ompi_coll_tuned_stream;

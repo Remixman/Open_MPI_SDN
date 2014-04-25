@@ -227,6 +227,8 @@ static int tuned_open(void)
 
     OPAL_OUTPUT((ompi_coll_tuned_stream, "coll:tuned:component_open: done!"));
 
+    //sdn_init();
+
     return OMPI_SUCCESS;
 }
 
@@ -234,6 +236,8 @@ static int tuned_open(void)
 /* i.e. alg table and dynamic changable rules if allocated etc */
 static int tuned_close(void)
 {
+    //sdn_finalize();
+
     OPAL_OUTPUT((ompi_coll_tuned_stream, "coll:tuned:component_close: called"));
 
     /* dealloc alg table if allocated */
