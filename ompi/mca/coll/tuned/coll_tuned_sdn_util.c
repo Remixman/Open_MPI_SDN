@@ -1,3 +1,20 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>           // close()
+#include <string.h>           // strcpy, memset(), and memcpy()
+
+#include <netdb.h>            // struct addrinfo
+#include <sys/types.h>        // needed for socket(), uint8_t, uint16_t
+#include <sys/socket.h>       // needed for socket()
+#include <netinet/in.h>       // IPPROTO_RAW, INET_ADDRSTRLEN
+#include <netinet/ip.h>       // IP_MAXPACKET (which is 65535)
+#include <arpa/inet.h>        // inet_pton() and inet_ntop()
+#include <sys/ioctl.h>        // macro ioctl is defined
+#include <bits/ioctls.h>      // defines values for argument "request" of ioctl.
+#include <net/if.h>           // struct ifreq
+#include <linux/if_ether.h>   // ETH_P_ARP = 0x0806
+#include <linux/if_packet.h>  // struct sockaddr_ll (see man 7 packet)
+#include <net/ethernet.h>
 
 #include "ompi_config.h"
 #include "coll_tuned.h"
@@ -9,21 +26,6 @@
 #include "ompi/mca/coll/base/coll_tags.h"
 #include "ompi/mca/pml/pml.h"
 #include "coll_tuned_sdn_util.h"
-
-/* declare in coll_tuned.h */
-int _proc_num;
-int _rank;
-int _recv_sock;
-int *_send_socks;
-int *_recv_ports;
-int *_send_ports;
-char ** _proc_ips;
-int *_plan_count;
-struct send_recv_plan **_sr_plans;
-u_char **_ether_hosts;
-char **_ip_hosts;
-char _mac_addr[20];
-char _ip[INET_ADDRSTRLEN];
 
 /* use in raw socket function */
 struct ifreq _if_idx, _if_mac, _if_ip;
@@ -75,10 +77,15 @@ void sdn_send_data_rawsocket(int dst_rank, void *senddata, int datasize) {
   char sendbuf[1480];
   int bcast = 0;
   int i;
-  if (dst_rank > _proc_num) {
+  int size, rank;
+
+  size = ompi_comm_size(MPI_COMM_WORLD);
+  rank = ompi_comm_rank(MPI_COMM_WORLD);
+
+  if (dst_rank > size) {
     bcast = 1;
     // set dst_rank to other host (use next host here)
-    dst_rank = (_rank + 1) % _proc_num;
+    dst_rank = (rank + 1) % size;
   }
 
   int sockfd = _send_socks[dst_rank];
@@ -179,7 +186,7 @@ void sdn_send_data_rawsocket(int dst_rank, void *senddata, int datasize) {
   socket_address.sll_addr[4] = 0xFF;
   socket_address.sll_addr[5] = 0xFF;
 
-  /*printf("\nPacket of rank %d\n", _rank);
+  /*printf("\nPacket of rank %d\n", rank);
   for (i = 0; i < tx_len; i++) {
     printf("%d ", *(char*)(sendbuf+i));
     if (i % 20 == 0 && i != 0) printf("\n");
@@ -234,18 +241,22 @@ void parse_mac_address(int rank, char *mac_str) {
 }
 
 void sdn_init() {
+
+  if (!sdn_comp_enable) return;
+
   int p, root;
+  int size, rank;
 
-  _proc_num = ompi_comm_size(MPI_COMM_WORLD);
-  _rank = ompi_comm_rank(MPI_COMM_WORLD);
+  size = ompi_comm_size(MPI_COMM_WORLD);
+  rank = ompi_comm_rank(MPI_COMM_WORLD);
 
-  _send_socks = (int *) malloc(sizeof(int) * _proc_num);
-  _recv_ports = (int *) malloc(sizeof(int) * _proc_num);
-  _send_ports = (int *) malloc(sizeof(int) * _proc_num);
-  _ether_hosts = (u_char **) malloc(sizeof(u_char*) * _proc_num);
-  _ip_hosts = (char **) malloc(sizeof(char*) * _proc_num);
+  _send_socks = (int *) malloc(sizeof(int) * size);
+  _recv_ports = (int *) malloc(sizeof(int) * size);
+  _send_ports = (int *) malloc(sizeof(int) * size);
+  _ether_hosts = (u_char **) malloc(sizeof(u_char*) * size);
+  _ip_hosts = (char **) malloc(sizeof(char*) * size);
 
-  for (p = 0; p < _proc_num; ++p) {
+  for (p = 0; p < size; ++p) {
     _ether_hosts[p] = (u_char *) malloc(sizeof(u_char) * 6);
     _ip_hosts[p] = (char *) malloc(sizeof(char) * 17);
   }
@@ -271,7 +282,7 @@ void sdn_init() {
   /* Send data to controller */
   // public_ip, rank
   sendline[0] = '\0';
-  switch (_rank) {
+  switch (rank) {
     case 0:  strcat(sendline, "10.0.0.21"); break;
     case 1:  strcat(sendline, "10.0.0.22"); break;
     case 2:  strcat(sendline, "10.0.0.23"); break;
@@ -292,8 +303,8 @@ void sdn_init() {
   strcat(sendline, " ");
   strcat(sendline, _mac_addr);
   strcat(sendline, " ");
-  sprintf(rank_str, "%d ", _rank);
-  sprintf(proc_num_str, "%d", _proc_num);
+  sprintf(rank_str, "%d ", rank);
+  sprintf(proc_num_str, "%d", size);
   strcat(sendline, rank_str);
   strcat(sendline, proc_num_str);
   sendto(sockfd, sendline, strlen(sendline), 0,
@@ -312,12 +323,12 @@ void sdn_init() {
     sscanf(num, "%d", &(num_list[idx++]));
     num = strtok(NULL, " \n");
   }
-  
+
   // receive send-recv plan from controller
-  _plan_count = (int*) malloc(sizeof(int) * _proc_num);
-  _sr_plans = (struct send_recv_plan**) malloc(sizeof(struct send_recv_plan*) * _proc_num);
+  _plan_count = (int*) malloc(sizeof(int) * size);
+  _sr_plans = (struct send_recv_plan**) malloc(sizeof(struct send_recv_plan*) * size);
   int parse_idx = 1;
-  for (p = 0; p < _proc_num; p++) {
+  for (p = 0; p < size; p++) {
     int root = num_list[parse_idx++];
     
     _plan_count[root] = num_list[parse_idx++];
@@ -330,12 +341,18 @@ void sdn_init() {
     }
   }
 
+  /* Contruct shortest binomial tree for each root */
+  sdn_shortest_bmtree = (ompi_coll_tree_t**) malloc(sizeof(ompi_coll_tree_t*) * size);
+  for (p = 0; p < size; p++) {
+    sdn_shortest_bmtree[p] = ompi_coll_tuned_topo_build_shortest_bmtree(MPI_COMM_WORLD, p);
+  }
+
   /* Receive MAC address of all nodes */
   n = recvfrom(sockfd, buffer, 2000, 0, NULL, NULL);
   buffer[n] = 0;
   num = strtok(buffer, " ");
   int recv_rank;
-  for (p = 0; p < _proc_num; p++) {
+  for (p = 0; p < size; p++) {
     sscanf(num, "%d", &recv_rank);
 
     num = strtok(NULL, " ");
@@ -349,26 +366,40 @@ void sdn_init() {
 
   /* dump receieve data */
   /*if (_rank == 0) {
-    for (p = 0; p < _proc_num; p++)
+    for (p = 0; p < size; p++)
       printf("[Rank %d] private ip is %s\n", p, _ip_hosts[p]);
   }*/
   
   /* Socket for communication between host */
-  for (p = 0; p < _proc_num; p++) {
-    if (p != _rank) {
-      open_send_rawsocket(p);
+  for (p = 0; p < size; p++) {
+    if (p != rank) {
+      sdn_open_send_rawsocket(p);
     }
   }
-  open_recv_rawsocket(-1);
+  sdn_open_recv_rawsocket(-1);
+
+  printf("FINISH SDN INIT\n");
 }
 
 void sdn_finalize() {
-  int p;
+  
+  if (!sdn_comp_enable) return;
 
-  for (p = 0; p < _proc_num; p++) {
-    if (p == _rank) continue;
+  int p;
+  int size, rank;
+
+  size = ompi_comm_size(MPI_COMM_WORLD);
+  rank = ompi_comm_rank(MPI_COMM_WORLD);
+
+  for (p = 0; p < size; p++) {
+    if (p == rank) continue;
 
     close(_send_socks[p]);
+
+    if (sdn_shortest_bmtree[p]) {
+      free(sdn_shortest_bmtree[p]);
+      sdn_shortest_bmtree[p] = NULL;
+    }
 
     free(_sr_plans[p]);
     free(_ether_hosts[p]);
@@ -376,6 +407,8 @@ void sdn_finalize() {
   }
 
   close(_recv_sock);
+
+  free(sdn_shortest_bmtree);
     
   free(_send_socks);
   free(_recv_ports);
@@ -447,11 +480,11 @@ int sdn_send_arp() {
     (unsigned char)ifr.ifr_hwaddr.sa_data[5]);
 
   // Report source MAC address to stdout.
-  printf ("MAC address for interface %s is ", interface);
+  /*printf ("MAC address for interface %s is ", interface);
   for (i=0; i<5; i++) {
     printf ("%02x:", src_mac[i]);
   }
-  printf ("%02x\n", src_mac[5]);
+  printf ("%02x\n", src_mac[5]);*/
 
   // Find interface index from interface name and store index in
   // struct sockaddr_ll device, which will be used as an argument of sendto().
@@ -466,10 +499,10 @@ int sdn_send_arp() {
   memset (dst_mac, 0xff, 6 * sizeof (uint8_t));
 
   // Source IPv4 address:  you need to fill this out
-  strcpy (src_ip, ip);
+  strcpy (src_ip, _ip);
 
   // Destination URL or IPv4 address (must be a link-local node): you need to fill this out
-  strcpy (target, ip);
+  strcpy (target, _ip);
 
   // Fill out hints for getaddrinfo().
   memset (&hints, 0, sizeof (struct addrinfo));

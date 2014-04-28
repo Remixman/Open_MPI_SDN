@@ -37,9 +37,6 @@
 /* also need the dynamic rule structures */
 #include "coll_tuned_dynamic_rules.h"
 
-/* sdn stuff definition */
-#include "coll_tuned_sdn_util.h"
-
 /* some fixed value index vars to simplify certain operations */
 typedef enum COLLTYPE {
     ALLGATHER = 0,  /*  0 */
@@ -83,8 +80,7 @@ typedef enum COLLTYPE {
 BEGIN_C_DECLS
 
 /* use in sdn algorithm, define in coll_tuned_sdn_utils.c */
-extern int _proc_num;
-extern int _rank;
+extern int sdn_comp_enable;
 extern int _recv_sock;
 extern int *_send_socks;
 extern int *_recv_ports;
@@ -96,6 +92,8 @@ extern u_char **_ether_hosts;
 extern char **_ip_hosts;
 extern char _mac_addr[20];
 extern char _ip[INET_ADDRSTRLEN];
+
+extern ompi_coll_tree_t **sdn_shortest_bmtree;
 
 struct send_recv_plan {
     int32_t level;

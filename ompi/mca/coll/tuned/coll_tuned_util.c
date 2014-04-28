@@ -26,6 +26,7 @@
 #include "ompi/mca/coll/base/coll_tags.h"
 #include "ompi/mca/pml/pml.h"
 #include "coll_tuned_util.h"
+#include "coll_tuned_sdn_util.h"
 
 int ompi_coll_tuned_sendrecv_actual( void* sendbuf, size_t scount, 
                                      ompi_datatype_t* sdatatype,

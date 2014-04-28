@@ -369,6 +369,9 @@ static int query(const mca_base_component_t * component,
                  int *priority, mca_coll_base_module_2_0_0_t ** module)
 {
     *module = NULL;
+
+    ompi_mpi_comm_world.comm.c_coll.coll_sdn_init = ((mca_coll_base_component_2_0_0_t*)component)->coll_sdn_init;
+
     if (2 == component->mca_type_major_version &&
         0 == component->mca_type_minor_version &&
         0 == component->mca_type_release_version) {

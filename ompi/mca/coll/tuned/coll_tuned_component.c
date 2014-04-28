@@ -32,6 +32,7 @@
 #include "ompi/mca/coll/coll.h"
 #include "coll_tuned.h"
 #include "coll_tuned_dynamic_file.h"
+#include "coll_tuned_sdn_util.h"
 
 /*
  * Public string showing the coll ompi_tuned component version number
@@ -56,6 +57,23 @@ int   ompi_coll_tuned_init_max_requests = 128;
 coll_tuned_force_algorithm_mca_param_indices_t ompi_coll_tuned_forced_params[COLLCOUNT];
 /* max algorithm values */
 int ompi_coll_tuned_forced_max_algorithms[COLLCOUNT];
+
+/* declare in coll_tuned.h */
+int sdn_comp_enable = 0;
+int _recv_sock;
+int *_send_socks;
+int *_recv_ports;
+int *_send_ports;
+char ** _proc_ips;
+int *_plan_count;
+struct send_recv_plan **_sr_plans;
+u_char **_ether_hosts;
+char **_ip_hosts;
+char _mac_addr[20];
+char _ip[INET_ADDRSTRLEN];
+
+/**/
+ompi_coll_tree_t **sdn_shortest_bmtree;
 
 /*
  * Local function
@@ -109,7 +127,6 @@ mca_coll_tuned_component_t mca_coll_tuned_component = {
 
 static int tuned_register(void)
 {
-
     /* Use a low priority, but allow other components to be lower */    
     ompi_coll_tuned_priority = 30;
     (void) mca_base_component_var_register(&mca_coll_tuned_component.super.collm_version,
@@ -227,7 +244,20 @@ static int tuned_open(void)
 
     OPAL_OUTPUT((ompi_coll_tuned_stream, "coll:tuned:component_open: done!"));
 
-    //sdn_init();
+    FILE *configfd = fopen("/mnt/nfs/flowmpi/sdn_config.txt", "r");
+    int sdn_level = 0;
+
+    if (!configfd) {
+        printf("#Cannot open config file, terminate!!\n");
+        exit(-34);
+    }
+    fscanf(configfd, "%d", &sdn_level);
+    fclose(configfd);
+    if (sdn_level > 0) {
+        printf("#Enable SDN MPI\n");
+        sdn_comp_enable = 1;
+    }
+    mca_coll_tuned_component.super.coll_sdn_init = sdn_init;
 
     return OMPI_SUCCESS;
 }
@@ -236,7 +266,7 @@ static int tuned_open(void)
 /* i.e. alg table and dynamic changable rules if allocated etc */
 static int tuned_close(void)
 {
-    //sdn_finalize();
+    sdn_finalize();
 
     OPAL_OUTPUT((ompi_coll_tuned_stream, "coll:tuned:component_close: called"));
 

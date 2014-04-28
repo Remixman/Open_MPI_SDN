@@ -370,7 +370,7 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(mcacomponentdir)"
 LTLIBRARIES = $(mcacomponent_LTLIBRARIES) $(noinst_LTLIBRARIES)
 libmca_coll_tuned_la_LIBADD =
-am__objects_1 = coll_tuned_topo.lo coll_tuned_util.lo \
+am__objects_1 = coll_tuned_topo.lo coll_tuned_util.lo coll_tuned_sdn_util.lo \
 	coll_tuned_decision_fixed.lo coll_tuned_decision_dynamic.lo \
 	coll_tuned_dynamic_file.lo coll_tuned_dynamic_rules.lo \
 	coll_tuned_allreduce.lo coll_tuned_alltoall.lo \
@@ -1522,10 +1522,12 @@ top_srcdir = @top_srcdir@
 sources = \
         coll_tuned.h \
         coll_tuned_topo.h \
+        coll_tuned_sdn_util.h \
         coll_tuned_util.h \
         coll_tuned_dynamic_file.h \
         coll_tuned_dynamic_rules.h \
         coll_tuned_topo.c \
+        coll_tuned_sdn_util.c \
         coll_tuned_util.c \
         coll_tuned_decision_fixed.c \
         coll_tuned_decision_dynamic.c \
@@ -1669,6 +1671,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coll_tuned_scatter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coll_tuned_topo.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coll_tuned_util.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coll_tuned_sdn_util.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\

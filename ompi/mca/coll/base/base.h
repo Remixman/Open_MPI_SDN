@@ -96,7 +96,7 @@ int mca_coll_base_find_available(bool enable_progress_threads,
  * communicator creation functions may be re-entered (albiet with
  * different arguments).
  */
-int mca_coll_base_comm_select(struct ompi_communicator_t *comm);
+int mca_coll_base_comm_select(struct ompi_communicator_t * comm);
 
 /**
  * Finalize a coll component on a specific communicator.
@@ -120,6 +120,10 @@ int mca_coll_base_comm_select(struct ompi_communicator_t *comm);
  * communicators may also be destroyed.
  */
 int mca_coll_base_comm_unselect(struct ompi_communicator_t *comm);
+
+/**
+ */
+int mca_coll_base_comm_sdn_init(struct ompi_communicator_t *comm);
 
 /*
  * Globals

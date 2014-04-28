@@ -5,6 +5,8 @@
 #include "ompi_config.h"
 
 #include "mpi.h"
+#include "coll_tuned.h"
+#include "coll_tuned_topo.h"
 #include "opal/mca/mca.h"
 #include "ompi/datatype/ompi_datatype.h"
 #include "ompi/request/request.h"

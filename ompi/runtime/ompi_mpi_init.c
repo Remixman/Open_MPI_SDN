@@ -992,5 +992,8 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided)
                                (ompistop.tv_usec - ompistart.tv_usec)));
     }
 
+    /* FIXME: hacking for sdn - sdn initialization */
+    ompi_mpi_comm_world.comm.c_coll.coll_sdn_init();
+
     return MPI_SUCCESS;
 }

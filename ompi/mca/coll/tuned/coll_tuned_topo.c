@@ -453,6 +453,53 @@ ompi_coll_tuned_topo_build_in_order_bmtree( struct ompi_communicator_t* comm,
     return bmtree;
 }
 
+ompi_coll_tree_t*
+ompi_coll_tuned_topo_build_shortest_bmtree( struct ompi_communicator_t* comm,
+                                            int root )
+{
+    int i, size, rank;
+    ompi_coll_tree_t *bmtree;
+
+    size = ompi_comm_size(comm);
+    rank = ompi_comm_rank(comm);
+
+    bmtree = (ompi_coll_tree_t*)malloc(sizeof(ompi_coll_tree_t));
+    if (!bmtree) {
+        OPAL_OUTPUT((ompi_coll_tuned_stream,"coll:tuned:topo:build_bmtree PANIC out of memory"));
+        return NULL;
+    }
+
+    /* Initialize binomial tree */
+    bmtree->tree_bmtree   = 1;
+    bmtree->tree_root     = MPI_UNDEFINED;
+    bmtree->tree_nextsize = MPI_UNDEFINED;
+    for(i=0;i<MAXTREEFANOUT;i++) {
+        bmtree->tree_next[i] = -1;
+    }
+
+    if (root == rank) {
+        int child_n = _plan_count[root];
+        bmtree->tree_prev = root;
+        bmtree->tree_nextsize = child_n;
+        for (i = 0; i < child_n; i++) {
+            bmtree->tree_next[i] = _sr_plans[root][i].src;
+        }
+    }
+    else {
+        int child_n = _plan_count[root] - 1;
+        bmtree->tree_prev = _sr_plans[root][child_n-1].dst;
+        bmtree->tree_nextsize = child_n;
+        for (i = 0; i < child_n; i++) {
+            bmtree->tree_next[i] = _sr_plans[root][i].src;
+        }
+        
+    }
+
+    bmtree->tree_root     = root;
+
+    return bmtree;
+}
+
 
 ompi_coll_tree_t*
 ompi_coll_tuned_topo_build_chain( int fanout,

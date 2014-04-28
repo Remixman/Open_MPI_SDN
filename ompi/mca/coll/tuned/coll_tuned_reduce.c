@@ -31,6 +31,7 @@
 #include "ompi/op/op.h"
 #include "coll_tuned.h"
 #include "coll_tuned_topo.h"
+#include "coll_tuned_sdn_util.h"
 
 /* reduce algorithm variables */
 static int coll_tuned_reduce_algorithm_count = 6;
@@ -475,6 +476,21 @@ int ompi_coll_tuned_reduce_intra_binomial( void *sendbuf, void *recvbuf,
     OPAL_OUTPUT((ompi_coll_tuned_stream,"coll:tuned:reduce_intra_binomial rank %d ss %5d",
                  ompi_comm_rank(comm), segsize));
 
+if (0sdn_comp_enable) {
+
+    if (ompi_comm_rank(comm) == 0) printf("SDN Version\n");
+    /**
+     * Determine number of segments and number of elements
+     * sent per operation
+     */
+    ompi_datatype_type_size( datatype, &typelng );
+    COLL_TUNED_COMPUTED_SEGCOUNT( segsize, typelng, segcount );
+
+    return ompi_coll_tuned_reduce_generic( sendbuf, recvbuf, count, datatype, 
+                                           op, root, comm, module,
+                                           sdn_shortest_bmtree[root], 
+                                           segcount, max_outstanding_reqs );
+} else {
     COLL_TUNED_UPDATE_IN_ORDER_BMTREE( comm, tuned_module, root );
 
     /**
@@ -488,6 +504,8 @@ int ompi_coll_tuned_reduce_intra_binomial( void *sendbuf, void *recvbuf,
                                            op, root, comm, module,
                                            data->cached_in_order_bmtree, 
                                            segcount, max_outstanding_reqs );
+} /* end if sdn_comp_enable */
+
 }
 
 /*

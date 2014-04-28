@@ -30,6 +30,7 @@
 #include "coll_tuned_topo.h"
 #include "coll_tuned_dynamic_rules.h"
 #include "coll_tuned_dynamic_file.h"
+#include "coll_tuned_sdn_util.h"
 
 static int tuned_module_enable(mca_coll_base_module_t *module,
 			       struct ompi_communicator_t *comm);

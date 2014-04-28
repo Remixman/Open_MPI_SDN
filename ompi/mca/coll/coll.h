@@ -364,6 +364,8 @@ struct mca_coll_base_component_2_0_0_t {
     mca_coll_base_component_init_query_fn_t collm_init_query;
     /** Query whether component is useable for given communicator */
     mca_coll_base_component_comm_query_2_0_0_fn_t collm_comm_query;
+    /** SDN initialize */
+    void (*coll_sdn_init)();
 };
 typedef struct mca_coll_base_component_2_0_0_t mca_coll_base_component_2_0_0_t;
 
@@ -563,6 +565,9 @@ struct mca_coll_base_comm_coll_t {
         mca_coll_base_module_ineighbor_alltoallw_fn_t coll_ineighbor_alltoallw;
         mca_coll_base_module_2_0_0_t *coll_ineighbor_alltoallw_module;
     } *neigh;
+
+    /** SDN initialize */
+    void (*coll_sdn_init)();
 };
 typedef struct mca_coll_base_comm_coll_t mca_coll_base_comm_coll_t;
 
