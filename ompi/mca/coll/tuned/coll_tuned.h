@@ -79,27 +79,25 @@ typedef enum COLLTYPE {
 
 BEGIN_C_DECLS
 
-/* use in sdn algorithm, define in coll_tuned_sdn_utils.c */
-extern int sdn_comp_enable;
-extern int _recv_sock;
-extern int *_send_socks;
-extern int *_recv_ports;
-extern int *_send_ports;
-extern char ** _proc_ips;
-extern int *_plan_count;
-extern struct send_recv_plan **_sr_plans;
-extern u_char **_ether_hosts;
-extern char **_ip_hosts;
-extern char _mac_addr[20];
-extern char _ip[INET_ADDRSTRLEN];
-
-extern ompi_coll_tree_t **sdn_shortest_bmtree;
-
 struct send_recv_plan {
-    int32_t level;
     int32_t src;
     int32_t dst; 
 };
+
+/* use in sdn algorithm, define in coll_tuned_sdn_utils.c */
+extern int sdn_comp_enable;
+extern int _recv_sock;
+extern int _send_socks[16];
+extern int _recv_ports[16];
+extern int _send_ports[16];
+extern int _plan_count[32];
+extern struct send_recv_plan _sr_plans[16][8];
+extern u_char _ether_hosts[16][6];
+extern char _ip_hosts[16][INET_ADDRSTRLEN];
+extern char _mac_addr[20];
+extern char _ip[INET_ADDRSTRLEN];
+
+extern ompi_coll_tree_t sdn_shortest_bmtree[16][8];
 
 struct tcpheader {
     unsigned short int tcph_srcport;

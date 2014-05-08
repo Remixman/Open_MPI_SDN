@@ -61,19 +61,18 @@ int ompi_coll_tuned_forced_max_algorithms[COLLCOUNT];
 /* declare in coll_tuned.h */
 int sdn_comp_enable = 0;
 int _recv_sock;
-int *_send_socks;
-int *_recv_ports;
-int *_send_ports;
-char ** _proc_ips;
-int *_plan_count;
-struct send_recv_plan **_sr_plans;
-u_char **_ether_hosts;
-char **_ip_hosts;
+int _send_socks[16];
+int _recv_ports[16];
+int _send_ports[16];
+int _plan_count[32];
+struct send_recv_plan _sr_plans[16][8];
+u_char _ether_hosts[16][6];
+char _ip_hosts[16][INET_ADDRSTRLEN];
 char _mac_addr[20];
 char _ip[INET_ADDRSTRLEN];
 
 /**/
-ompi_coll_tree_t **sdn_shortest_bmtree;
+ompi_coll_tree_t sdn_shortest_bmtree[16][8];
 
 /*
  * Local function
@@ -254,8 +253,7 @@ static int tuned_open(void)
     fscanf(configfd, "%d", &sdn_level);
     fclose(configfd);
     if (sdn_level > 0) {
-        printf("#Enable SDN MPI\n");
-        sdn_comp_enable = 1;
+        sdn_comp_enable = sdn_level;
     }
     mca_coll_tuned_component.super.coll_sdn_init = sdn_init;
 

@@ -47,8 +47,9 @@ ompi_coll_tuned_topo_build_bmtree( struct ompi_communicator_t* comm,
 ompi_coll_tree_t*
 ompi_coll_tuned_topo_build_in_order_bmtree( struct ompi_communicator_t* comm,
                                             int root );
-ompi_coll_tree_t*
+void
 ompi_coll_tuned_topo_build_shortest_bmtree( struct ompi_communicator_t* comm,
+                                            ompi_coll_tree_t *bmtree,
                                             int root );
 ompi_coll_tree_t*
 ompi_coll_tuned_topo_build_chain( int fanout,

@@ -100,6 +100,13 @@ int ompi_coll_tuned_reduce_generic( void* sendbuf, void* recvbuf, int original_c
 
     rank = ompi_comm_rank(comm);
 
+    /*printf("Tree of rank %d - ", rank);
+    printf("Parent : %d - ", tree->tree_prev);
+    printf("Child : ");
+    for (i = 0; i < tree->tree_nextsize; i++)
+        printf("%d ", tree->tree_next[i]);
+    printf("\n");*/
+
     /* non-leaf nodes - wait for children to send me data & forward up 
        (if needed) */
     if( tree->tree_nextsize > 0 ) {
@@ -180,7 +187,6 @@ int ompi_coll_tuned_reduce_generic( void* sendbuf, void* recvbuf, int original_c
                             local_recvbuf = accumbuf + (ptrdiff_t)segindex * (ptrdiff_t)segment_increment;
                         }
                     }
-
                     ret = MCA_PML_CALL(irecv(local_recvbuf, recvcount, datatype,
                                              tree->tree_next[i], 
                                              MCA_COLL_BASE_TAG_REDUCE, comm, 
@@ -476,9 +482,69 @@ int ompi_coll_tuned_reduce_intra_binomial( void *sendbuf, void *recvbuf,
     OPAL_OUTPUT((ompi_coll_tuned_stream,"coll:tuned:reduce_intra_binomial rank %d ss %5d",
                  ompi_comm_rank(comm), segsize));
 
-if (0sdn_comp_enable) {
+    //printf ("USE BINOMIAL REDUCTION\n");
 
-    if (ompi_comm_rank(comm) == 0) printf("SDN Version\n");
+if (sdn_comp_enable > 1) {
+    assert(false);
+    ompi_coll_tree_t *tree = (ompi_coll_tree_t*)malloc(sizeof(ompi_coll_tree_t));
+    tree->tree_bmtree   = 1;
+    tree->tree_root     = MPI_UNDEFINED;
+    tree->tree_nextsize = MPI_UNDEFINED;
+    tree->tree_root     = root;
+    
+    switch (ompi_comm_rank(comm)) {
+    case 0:
+        tree->tree_nextsize = 0;
+        tree->tree_prev = 1;
+        break;
+    case 1:
+        tree->tree_nextsize = 1;
+        tree->tree_next[0] = 0;
+        tree->tree_prev = 3;
+        break;
+    case 2:
+        tree->tree_nextsize = 0;
+        tree->tree_prev = 3;
+        break;
+    case 3:
+        tree->tree_nextsize = 2;
+        tree->tree_next[0] = 1;
+        tree->tree_next[1] = 2;
+        tree->tree_prev = 7;
+        break;
+    case 4:
+        tree->tree_nextsize = 1;
+        tree->tree_next[0] = 5;
+        tree->tree_prev = 7;
+        break;
+    case 5:
+        tree->tree_nextsize = 0;
+        tree->tree_prev = 4;
+        break;
+    case 6:
+        tree->tree_nextsize = 0;
+        tree->tree_prev = 7;
+        break;
+    case 7:
+        tree->tree_nextsize = 3;
+        tree->tree_next[0] = 3;
+        tree->tree_next[1] = 4;
+        tree->tree_next[2] = 6;
+        tree->tree_prev = 7;
+        break;
+    }
+
+    /**
+     * Determine number of segments and number of elements
+     * sent per operation
+     */
+    ompi_datatype_type_size( datatype, &typelng );
+    COLL_TUNED_COMPUTED_SEGCOUNT( segsize, typelng, segcount );
+
+    return ompi_coll_tuned_reduce_generic( sendbuf, recvbuf, count, datatype, 
+                                           op, root, comm, module, tree, 
+                                           segcount, max_outstanding_reqs );
+} else if (sdn_comp_enable > 0) {
     /**
      * Determine number of segments and number of elements
      * sent per operation
@@ -491,6 +557,7 @@ if (0sdn_comp_enable) {
                                            sdn_shortest_bmtree[root], 
                                            segcount, max_outstanding_reqs );
 } else {
+
     COLL_TUNED_UPDATE_IN_ORDER_BMTREE( comm, tuned_module, root );
 
     /**

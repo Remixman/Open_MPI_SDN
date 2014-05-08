@@ -242,7 +242,7 @@ void parse_mac_address(int rank, char *mac_str) {
 
 void sdn_init() {
 
-  if (!sdn_comp_enable) return;
+  if (sdn_comp_enable != 1) return;
 
   int p, root;
   int size, rank;
@@ -250,25 +250,16 @@ void sdn_init() {
   size = ompi_comm_size(MPI_COMM_WORLD);
   rank = ompi_comm_rank(MPI_COMM_WORLD);
 
-  _send_socks = (int *) malloc(sizeof(int) * size);
-  _recv_ports = (int *) malloc(sizeof(int) * size);
-  _send_ports = (int *) malloc(sizeof(int) * size);
-  _ether_hosts = (u_char **) malloc(sizeof(u_char*) * size);
-  _ip_hosts = (char **) malloc(sizeof(char*) * size);
-
-  for (p = 0; p < size; ++p) {
-    _ether_hosts[p] = (u_char *) malloc(sizeof(u_char) * 6);
-    _ip_hosts[p] = (char *) malloc(sizeof(char) * 17);
-  }
+  //if (rank == 0) printf("Enable SDN MPI\n");
 
   sdn_get_ip_address();
   sdn_send_arp();
 
   int sockfd,n;
   struct sockaddr_in servaddr,cliaddr;
-  char rank_str[6], proc_num_str[6];
   char sendline[2000];
   char buffer[2000];
+  char *next_start;
 
   sockfd=socket(AF_INET,SOCK_STREAM,0);
 
@@ -282,108 +273,78 @@ void sdn_init() {
   /* Send data to controller */
   // public_ip, rank
   sendline[0] = '\0';
-  switch (rank) {
-    case 0:  strcat(sendline, "10.0.0.21"); break;
-    case 1:  strcat(sendline, "10.0.0.22"); break;
-    case 2:  strcat(sendline, "10.0.0.23"); break;
-    case 3:  strcat(sendline, "10.0.0.24"); break;
-    case 4:  strcat(sendline, "10.0.0.25"); break;
-    case 5:  strcat(sendline, "10.0.0.26"); break;
-    case 6:  strcat(sendline, "10.0.0.27"); break;
-    case 7:  strcat(sendline, "10.0.0.28"); break;
-    case 8:  strcat(sendline, "10.0.0.29"); break;
-    case 9:  strcat(sendline, "10.0.0.30"); break;
-    case 10: strcat(sendline, "10.0.0.31"); break;
-    case 11: strcat(sendline, "10.0.0.32"); break;
-    case 12: strcat(sendline, "10.0.0.33"); break;
-    case 13: strcat(sendline, "10.0.0.34"); break;
-    case 14: strcat(sendline, "10.0.0.35"); break;
-    case 15: strcat(sendline, "10.0.0.36"); break;
-  }
-  strcat(sendline, " ");
-  strcat(sendline, _mac_addr);
-  strcat(sendline, " ");
-  sprintf(rank_str, "%d ", rank);
-  sprintf(proc_num_str, "%d", size);
-  strcat(sendline, rank_str);
-  strcat(sendline, proc_num_str);
+  sprintf(sendline, "%s %s %d %d", _ip, _mac_addr, rank, size);
   sendto(sockfd, sendline, strlen(sendline), 0,
     (struct sockaddr *)&servaddr, sizeof(servaddr));
 
   /* Receive reduction plan from controller */
   n = recvfrom(sockfd, buffer, 2000, 0, NULL, NULL);
-  buffer[n] = 0;
+  buffer[n] = '\0';
+  next_start = buffer;
 
-  // parse plan string
-  int num_list[50];
-  char *num;
-  num = strtok(buffer, " \n");
-  int i, idx = 0;
-  while (num != NULL) {
-    sscanf(num, "%d", &(num_list[idx++]));
-    num = strtok(NULL, " \n");
-  }
+  int num;
+  char str_buf[100];
 
-  // receive send-recv plan from controller
-  _plan_count = (int*) malloc(sizeof(int) * size);
-  _sr_plans = (struct send_recv_plan**) malloc(sizeof(struct send_recv_plan*) * size);
-  int parse_idx = 1;
+  // skip number of processes
+  next_start = split_first_string(next_start, str_buf); 
+
   for (p = 0; p < size; p++) {
-    int root = num_list[parse_idx++];
-    
-    _plan_count[root] = num_list[parse_idx++];
-    _sr_plans[root] = (struct send_recv_plan*) malloc(sizeof(struct send_recv_plan) * _plan_count[root]);
-    
+    // root
+    next_start = split_first_string(next_start, str_buf);
+    int root = str_to_int(str_buf);
+
+    // step count
+    next_start = split_first_string(next_start, str_buf);
+    num = str_to_int(str_buf);
+
+    _plan_count[root] = num;
+
     int pc;
     for (pc = 0; pc < _plan_count[root]; pc++) {
-      _sr_plans[root][pc].src = num_list[parse_idx++];
-      _sr_plans[root][pc].dst = num_list[parse_idx++];
+      next_start = split_first_string(next_start, str_buf);
+      _sr_plans[root][pc].src = str_to_int(str_buf);
+      next_start = split_first_string(next_start, str_buf);
+      _sr_plans[root][pc].dst = str_to_int(str_buf);
     }
   }
 
   /* Contruct shortest binomial tree for each root */
-  sdn_shortest_bmtree = (ompi_coll_tree_t**) malloc(sizeof(ompi_coll_tree_t*) * size);
   for (p = 0; p < size; p++) {
-    sdn_shortest_bmtree[p] = ompi_coll_tuned_topo_build_shortest_bmtree(MPI_COMM_WORLD, p);
+    ompi_coll_tuned_topo_build_shortest_bmtree(MPI_COMM_WORLD, sdn_shortest_bmtree[p], p);
   }
 
   /* Receive MAC address of all nodes */
   n = recvfrom(sockfd, buffer, 2000, 0, NULL, NULL);
-  buffer[n] = 0;
-  num = strtok(buffer, " ");
-  int recv_rank;
+  buffer[n] = '\0';
+  next_start = buffer;
+
   for (p = 0; p < size; p++) {
-    sscanf(num, "%d", &recv_rank);
+    next_start = split_first_string(next_start, str_buf);
+    int recv_rank = str_to_int(str_buf);
 
-    num = strtok(NULL, " ");
-    parse_mac_address(recv_rank, num);
+    next_start = split_first_string(next_start, str_buf);
+    parse_mac_address(recv_rank, str_buf);
 
-    num = strtok(NULL, " ");
-    strcpy(_ip_hosts[recv_rank], num);
-
-    num = strtok(NULL, " ");
+    next_start = split_first_string(next_start, str_buf);
+    strcpy(_ip_hosts[recv_rank], str_buf);
   }
 
   /* dump receieve data */
-  /*if (_rank == 0) {
+  /*if (rank == 0) {
     for (p = 0; p < size; p++)
       printf("[Rank %d] private ip is %s\n", p, _ip_hosts[p]);
   }*/
-  
+
   /* Socket for communication between host */
   for (p = 0; p < size; p++) {
-    if (p != rank) {
-      sdn_open_send_rawsocket(p);
-    }
+    if (p != rank) sdn_open_send_rawsocket(p);
   }
   sdn_open_recv_rawsocket(-1);
-
-  printf("FINISH SDN INIT\n");
 }
 
 void sdn_finalize() {
-  
-  if (!sdn_comp_enable) return;
+
+  if (sdn_comp_enable != 1) return;
 
   int p;
   int size, rank;
@@ -392,30 +353,12 @@ void sdn_finalize() {
   rank = ompi_comm_rank(MPI_COMM_WORLD);
 
   for (p = 0; p < size; p++) {
-    if (p == rank) continue;
-
-    close(_send_socks[p]);
-
-    if (sdn_shortest_bmtree[p]) {
-      free(sdn_shortest_bmtree[p]);
-      sdn_shortest_bmtree[p] = NULL;
+    if (p != rank) {
+      //close(_send_socks[p]);
     }
-
-    free(_sr_plans[p]);
-    free(_ether_hosts[p]);
-    free(_ip_hosts[p]);
   }
 
-  close(_recv_sock);
-
-  free(sdn_shortest_bmtree);
-    
-  free(_send_socks);
-  free(_recv_ports);
-  free(_send_ports);
-  free(_sr_plans);
-  free(_ether_hosts);
-  free(_ip_hosts);
+  //close(_recv_sock);
 }
 
 

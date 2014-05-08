@@ -42,6 +42,31 @@ void sdn_get_ip_address();
 
 /* inline functions */
 
+static inline int
+str_to_int(char *str) {
+  int num = 0;
+  char *ptr;
+  for (ptr = str; (*ptr)!='\0'; ptr++, num*=10) {
+    char c = *ptr;
+    num += c - '0';
+  }
+
+  return num/10;
+}
+
+static inline char*
+split_first_string(char *str, char *first_buf) {
+  for (str;(*str)!=' ' && (*str)!='\n';str++, first_buf++) {
+    *first_buf = *str;
+  }
+  *first_buf = '\0';
+
+  while ((*str) == ' ' || (*str) == '\n') str++;
+
+  if ((*str)=='\n') return NULL;
+  return str;
+}
+
 static inline unsigned short 
 csum(unsigned short *buf, int nwords) {
   unsigned long sum;

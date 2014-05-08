@@ -120,11 +120,6 @@ int mca_coll_base_comm_select(struct ompi_communicator_t * comm);
  * communicators may also be destroyed.
  */
 int mca_coll_base_comm_unselect(struct ompi_communicator_t *comm);
-
-/**
- */
-int mca_coll_base_comm_sdn_init(struct ompi_communicator_t *comm);
-
 /*
  * Globals
  */
